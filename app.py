@@ -8,8 +8,14 @@ import io
 def load_whisper_model():
     """
     Load the Whisper model for audio transcription
+    with automatic chunking for inputs > 30 seconds.
     """
-    whisper_model = pipeline("automatic-speech-recognition", model="openai/whisper-tiny")
+    # Burada chunk_length_s=30 diyerek 30 saniyeden uzun kayıtları parçalara ayırıyoruz
+    whisper_model = pipeline(
+        "automatic-speech-recognition", 
+        model="openai/whisper-tiny", 
+        chunk_length_s=30
+    )
     return whisper_model
 
 
@@ -36,12 +42,21 @@ def transcribe_audio(uploaded_file, whisper_model):
     Returns:
         str: Transcribed text from the audio file.
     """
-    # Read the audio file into memory
+    # Read the audio file into memory (bytes)
     audio_bytes = uploaded_file.read()
 
-    # Transcribe the audio using the Whisper model
-    transcription = whisper_model(audio_bytes)["text"]
-    return transcription
+    # Transcribe the audio
+    result = whisper_model(audio_bytes)
+    
+    # Eğer uzun kayıtlar parçalara ayrıldıysa result bir liste dönebilir
+    if isinstance(result, list):
+        # Segmentleri birleştiriyoruz
+        transcription_text = " ".join(segment["text"] for segment in result)
+    else:
+        # Kısa kayıtlar tek dict dönebilir
+        transcription_text = result["text"]
+
+    return transcription_text
 
 
 # ------------------------------
@@ -82,7 +97,7 @@ def main():
     # Replace with your name and student ID
     STUDENT_NAME = "Doğukan Duran"
     STUDENT_ID = "150220333"
-    st.write(f"*{STUDENT_ID} - {STUDENT_NAME}*")
+    st.write(f"{STUDENT_ID} - {STUDENT_NAME}")
 
     # File uploader for audio
     uploaded_file = st.file_uploader("Upload an audio file", type=["wav", "mp3", "ogg", "flac"])
@@ -106,12 +121,13 @@ def main():
             # Display extracted entities
             st.subheader("Extracted Entities:")
             for category, items in entities.items():
-                st.write(f"*{category}:*")
+                st.write(f"{category}:")
                 for item in items:
                     st.write(f"- {item}")
         except Exception as e:
             st.error(f"An error occurred during transcription or entity extraction: {e}")
 
 
+# DOĞRU YAZIM:  "_main_"
 if __name__ == "_main_":
     main()
