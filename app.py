@@ -1,9 +1,6 @@
 import streamlit as st
 from transformers import pipeline
-import os
-import tempfile
-from transformers import WhisperProcessor, WhisperForConditionalGeneration
-import torch
+
 
 # Streamlit sayfa başlığı
 st.set_page_config(page_title="Meeting Transcription & Entity Extraction", layout="centered")
@@ -16,8 +13,6 @@ st.markdown("Upload a business meeting audio file to: 1.Transcribe the meeting a
 # Kullanıcıdan WAV ses dosyasını yüklemesini isteyen kısım
 uploaded_file = st.file_uploader("Upload an audio file(WAV format)", type=["wav"])
 
-import streamlit as st
-from transformers import pipeline
 
 # ------------------------------
 # Load Whisper Model
