@@ -86,7 +86,7 @@ def main():
     st.write(f"{STUDENT_ID} - {STUDENT_NAME}")
 
     # File uploader for audio
-    uploaded_file = st.file_uploader("Upload an audio file", type=["wav", "mp3", "ogg", "flac"])
+    uploaded_file = st.file_uploader("Upload an audio file", type=["wav"])
 
     if uploaded_file is not None:
         # Load models
