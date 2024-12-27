@@ -93,21 +93,24 @@ def main():
         ner_model = load_ner_model()
 
         # Transcribe the audio
-        transcription = transcribe_audio(uploaded_file, whisper_model)
+        try:
+            transcription = transcribe_audio(uploaded_file, whisper_model)
 
-        # Display transcription
-        st.subheader("Transcription:")
-        st.write(transcription)
+            # Display transcription
+            st.subheader("Transcription:")
+            st.write(transcription)
 
-        # Extract entities from the transcription
-        entities = extract_entities(transcription, ner_model)
+            # Extract entities from the transcription
+            entities = extract_entities(transcription, ner_model)
 
-        # Display extracted entities
-        st.subheader("Extracted Entities:")
-        for category, items in entities.items():
-            st.write(f"**{category}:**")
-            for item in items:
-                st.write(f"- {item}")
+            # Display extracted entities
+            st.subheader("Extracted Entities:")
+            for category, items in entities.items():
+                st.write(f"**{category}:**")
+                for item in items:
+                    st.write(f"- {item}")
+        except Exception as e:
+            st.error(f"An error occurred during transcription or entity extraction: {e}")
 
 
 if __name__ == "__main__":
