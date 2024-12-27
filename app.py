@@ -113,5 +113,5 @@ def main():
             st.error(f"An error occurred during transcription or entity extraction: {e}")
 
 
-if _name_ == "_main_":
+if __name__ == "_main_":
     main()
