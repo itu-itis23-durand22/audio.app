@@ -10,7 +10,7 @@ st.set_page_config(page_title="Audio Transcription & Entity Extraction", layout=
 
 # Başlık ve Giriş Bilgileri
 st.title("Audio Transcription & Named Entity Extraction")
-st.write("**Developer:** Yaren Yılmaz | **Student ID:** yilmazy20@itu.edu.tr")
+st.write("**Developer:** Doğukan Duran | **Student ID:**150220333")
 st.markdown("Bu uygulama WAV formatındaki ses dosyalarını yazıya döker ve metindeki kişileri (Persons), organizasyonları (Organizations) ve konumları (Locations) algılar.")
 
 # Kullanıcıdan WAV ses dosyasını yüklemesini isteyen kısım
