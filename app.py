@@ -1,15 +1,6 @@
 import streamlit as st
 from transformers import pipeline
-# Streamlit sayfa başlığı
-st.set_page_config(page_title="Audio Transcription & Entity Extraction", layout="centered")
 
-# Başlık ve Giriş Bilgileri
-st.title("Audio Transcription & Named Entity Extraction")
-st.write("*Developer:* [Adınız Soyadınız] | *Student ID:* [Öğrenci Numaranız]")
-st.markdown("Bu uygulama WAV formatındaki ses dosyalarını yazıya döker ve metindeki kişileri (Persons), organizasyonları (Organizations) ve konumları (Locations) algılar.")
-
-# Kullanıcıdan WAV ses dosyasını yüklemesini isteyen kısım
-uploaded_file = st.file_uploader("Lütfen bir WAV dosyası yükleyin:", type=["wav"])
 # ------------------------------
 # Load Whisper Model
 # ------------------------------
