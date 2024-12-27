@@ -11,7 +11,7 @@ st.set_page_config(page_title="Meeting Transcription & Entity Extraction", layou
 # Başlık ve Giriş Bilgileri
 st.title("Meeting Transcription and Entity Extraction")
 st.write("150220333|Doğukan Duran")
-st.markdown("Upload a business meeting audio file to:"  +/n + " 1.Transcribe the meeting audio into text."+ /n +"2. Extract key entities such as Persons, Organisations, Dates, and Locations.")
+st.markdown("Upload a business meeting audio file to:/n 1.Transcribe the meeting audio into text. /n 2. Extract key entities such as Persons, Organisations, Dates, and Locations.")
 
 # Kullanıcıdan WAV ses dosyasını yüklemesini isteyen kısım
 uploaded_file = st.file_uploader("Upload an audio file(WAV format)", type=["wav"])
