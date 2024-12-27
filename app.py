@@ -1,5 +1,6 @@
 import streamlit as st
 from transformers import pipeline
+import io
 
 # ------------------------------
 # Load Whisper Model
@@ -8,7 +9,6 @@ def load_whisper_model():
     """
     Load the Whisper model for audio transcription.
     """
-    # Using the Hugging Face pipeline for Whisper model (automatic-speech-recognition)
     whisper_model = pipeline("automatic-speech-recognition", model="openai/whisper-tiny")
     return whisper_model
 
@@ -36,23 +36,27 @@ def transcribe_audio(uploaded_file, whisper_model):
     Returns:
         str: Transcribed text from the audio file.
     """
-    transcription = whisper_model(uploaded_file)["text"]
+    # Read the audio file into memory
+    audio_bytes = uploaded_file.read()
+
+    # Transcribe the audio using the Whisper model
+    transcription = whisper_model(audio_bytes)["text"]
     return transcription
 
 
 # ------------------------------
 # Entity Extraction
 # ------------------------------
-def extract_entities(text, ner_model):
+def extract_entities(text, ner_pipeline):
     """
     Extract entities from transcribed text using the NER model.
     Args:
         text (str): Transcribed text.
-        ner_model: NER pipeline loaded from Hugging Face.
+        ner_pipeline: NER pipeline loaded from Hugging Face.
     Returns:
         dict: Grouped entities (ORGs, LOCs, PERs).
     """
-    entities = ner_model(text)
+    entities = ner_pipeline(text)
     grouped_entities = {"ORGs": [], "LOCs": [], "PERs": []}
 
     # Group entities by their entity type
@@ -76,12 +80,12 @@ def main():
     st.title("Meeting Transcription and Entity Extraction")
 
     # Replace with your name and student ID
-    STUDENT_NAME = "Your Name"
-    STUDENT_ID = "Your Student ID"
+    STUDENT_NAME = "Yaren Yılmaz"
+    STUDENT_ID = "yilmazy20@itu.edu.tr"
     st.write(f"**{STUDENT_ID} - {STUDENT_NAME}**")
 
     # File uploader for audio
-    uploaded_file = st.file_uploader("Upload an audio file", type=["wav"])
+    uploaded_file = st.file_uploader("Upload an audio file", type=["wav", "mp3", "ogg", "flac"])
 
     if uploaded_file is not None:
         # Load models
@@ -108,4 +112,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
