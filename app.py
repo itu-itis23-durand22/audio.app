@@ -1,76 +1,103 @@
 import streamlit as st
 from transformers import pipeline
+import tempfile  # Geçici dosya yöntemi için
+# Streamlit sayfa başlığı
+st.set_page_config(page_title="Audio Transcription & Entity Extraction", layout="centered")
 
+# Başlık ve Giriş Bilgileri
+st.title("Audio Transcription & Named Entity Extraction")
+st.write("**Developer:** [Adınız Soyadınız] | **Student ID:** [Öğrenci Numaranız]")
+st.markdown("Bu uygulama WAV formatındaki ses dosyalarını yazıya döker ve metindeki kişileri (Persons), organizasyonları (Organizations) ve konumları (Locations) algılar.")
 
+# Kullanıcıdan WAV ses dosyasını yüklemesini isteyen kısım
+uploaded_file = st.file_uploader("Lütfen bir WAV dosyası yükleyin:", type=["wav"])
 
-
-
+# Hugging Face'den Whisper Tiny Modelini yükleme
 # ------------------------------
 # Load Whisper Model
 # ------------------------------
+@st.cache_resource
 def load_whisper_model():
     """
-    Load the Whisper model for audio transcription using Hugging Face's transformers library.
+    Load the Whisper model for audio transcription.
     """
-    # Using pipeline to load the Whisper model
-    whisper = pipeline("automatic-speech-recognition", model="openai/whisper-tiny")
-    return whisper
-
+    # chunk_length_s=30 diyerek 30 sn'den uzun kayıtları parçalıyoruz.
+    asr_pipeline = pipeline(
+        "automatic-speech-recognition",
+        model="openai/whisper-tiny",
+        chunk_length_s=30  # Uzun kayıtlar otomatik parçalanır.
+    )
+    return asr_pipeline
 
 # ------------------------------
 # Load NER Model
 # ------------------------------
+@st.cache_resource
 def load_ner_model():
     """
     Load the Named Entity Recognition (NER) model pipeline.
     """
-    ner_pipeline = pipeline("ner", model="dslim/bert-base-NER", grouped_entities=True)
+    ner_pipeline = pipeline("ner", model="dslim/bert-base-NER", aggregation_strategy="simple")
     return ner_pipeline
-
 
 # ------------------------------
 # Transcription Logic
 # ------------------------------
-def transcribe_audio(uploaded_file, whisper_model):
+def transcribe_audio(uploaded_file, asr_pipeline):
     """
     Transcribe audio into text using the Whisper model.
     Args:
         uploaded_file: Audio file uploaded by the user.
-        whisper_model: The Whisper model for transcription.
+        asr_pipeline: The loaded Whisper pipeline.
     Returns:
         str: Transcribed text from the audio file.
     """
-    # Use whisper to transcribe the uploaded audio
-    transcription = whisper_model(uploaded_file)["text"]
-    return transcription
+    # Geçici bir dosya oluşturup veriyi oraya yazıyoruz:
+    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
+        tmp.write(uploaded_file.read())
+        tmp.flush()  # Dosyayı diske yazmak için
 
+        # Model bu geçici .wav dosyasını okuyarak transkripsiyon yapacak
+        result = asr_pipeline(tmp.name)
+
+    # Eğer Whisper dosyayı parçalara ayırdıysa (liste döner), hepsini birleştiriyoruz
+    if isinstance(result, list):
+        transcription_text = " ".join(segment["text"] for segment in result)
+    else:
+        # Kısa dosyalarda tek parça (dict) dönebilir
+        transcription_text = result["text"]
+
+    return transcription_text
 
 # ------------------------------
 # Entity Extraction
 # ------------------------------
-def extract_entities(text, ner_model):
+def extract_entities(text, ner_pipeline):
     """
     Extract entities from transcribed text using the NER model.
-    Args:
-        text (str): Transcribed text.
-        ner_model: NER pipeline loaded from Hugging Face.
-    Returns:
-        dict: Grouped entities (ORGs, LOCs, PERs).
     """
-    entities = ner_model(text)
-    # Group entities by category
-    grouped_entities = {"ORGs": [], "LOCs": [], "PERs": []}
-    for entity in entities:
-        if entity['entity_group'] == "ORG":
-            grouped_entities["ORGs"].append(entity['word'])
-        elif entity['entity_group'] == "LOC":
-            grouped_entities["LOCs"].append(entity['word'])
-        elif entity['entity_group'] == "PER":
-            grouped_entities["PERs"].append(entity['word'])
-    # Remove duplicates by converting lists to sets
-    grouped_entities = {key: list(set(value)) for key, value in grouped_entities.items()}
-    return grouped_entities
+    ner_results = ner_pipeline(text)
 
+    orgs = set()
+    locs = set()
+    pers = set()
+
+    for entity in ner_results:
+        entity_group = entity["entity_group"]
+        entity_word  = entity["word"]
+        
+        if entity_group == "ORG":
+            orgs.add(entity_word)
+        elif entity_group == "LOC":
+            locs.add(entity_word)
+        elif entity_group == "PER":
+            pers.add(entity_word)
+
+    return {
+        "ORG": list(orgs),
+        "LOC": list(locs),
+        "PER": list(pers)
+    }
 
 # ------------------------------
 # Main Streamlit Application
@@ -78,37 +105,58 @@ def extract_entities(text, ner_model):
 def main():
     st.title("Meeting Transcription and Entity Extraction")
 
-    # You must replace below
-    STUDENT_NAME = "Your Name"
-    STUDENT_ID = "Your Student ID"
-    st.write(f"**{STUDENT_ID} - {STUDENT_NAME}**")
+    # Lütfen bu kısımları kendi bilgilerinizle değiştirin
+    STUDENT_NAME = "Mustafa İhsan Yüce"
+    STUDENT_ID   = "150210333"
+    st.write(f"*{STUDENT_ID} - {STUDENT_NAME}*")
 
-    # File uploader
-    uploaded_file = st.file_uploader("Upload an audio file", type=["wav"])
+    # Model yüklemelerini gerçekleştirelim
+    asr_pipeline = load_whisper_model()
+    ner_pipeline = load_ner_model()
+
+    # Uygulama içinde WAV formatlı dosya yüklenmesini sağlayalım
+    uploaded_file = st.file_uploader("Lütfen WAV formatında bir ses dosyası yükleyiniz:", type=["wav"])
 
     if uploaded_file is not None:
-        # Load models
-        whisper_model = load_whisper_model()
-        ner_model = load_ner_model()
+        # Kullanıcının yüklediği ses dosyasını çalabilmek için
+        st.audio(uploaded_file, format="audio/wav")
 
-        # Transcribe audio
-        transcription = transcribe_audio(uploaded_file, whisper_model)
+        # 1) Transcribe
+        with st.spinner("Ses dosyası metne dönüştürülüyor (Whisper Tiny)..."):
+            transcription_text = transcribe_audio(uploaded_file, asr_pipeline)
 
-        # Display transcription
-        st.subheader("Transcription:")
-        st.write(transcription)
+        st.subheader("Transcribed Text")
+        st.write(transcription_text)
 
-        # Extract entities
-        entities = extract_entities(transcription, ner_model)
+        # 2) NER Extraction
+        with st.spinner("Metindeki varlıklar tespit ediliyor (NER modeli)..."):
+            entities = extract_entities(transcription_text, ner_pipeline)
 
-        # Display extracted entities
-        st.subheader("Extracted Entities:")
-        for category, items in entities.items():
-            st.write(f"**{category}:**")
-            for item in items:
-                st.write(f"- {item}")
+        st.subheader("Extracted Entities")
+        # Organizasyonlar (ORG)
+        st.write("*Organizations (ORG)*")
+        if len(entities["ORG"]) > 0:
+            for org in entities["ORG"]:
+                st.write("- ", org)
+        else:
+            st.write("Hiçbir organizasyon tespit edilmedi.")
 
+        # Lokasyonlar (LOC)
+        st.write("*Locations (LOC)*")
+        if len(entities["LOC"]) > 0:
+            for loc in entities["LOC"]:
+                st.write("- ", loc)
+        else:
+            st.write("Hiçbir lokasyon tespit edilmedi.")
 
-if __name__ == "__main__":
+        # Kişiler (PER)
+        st.write("*Persons (PER)*")
+        if len(entities["PER"]) > 0:
+            for per in entities["PER"]:
+                st.write("- ", per)
+        else:
+            st.write("Hiçbir kişi tespit edilmedi.")
+
+if _name_ == "_main_":
     main()
 
