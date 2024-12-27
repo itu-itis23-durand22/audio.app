@@ -6,15 +6,15 @@ from transformers import WhisperProcessor, WhisperForConditionalGeneration
 import torch
 
 # Streamlit sayfa başlığı
-st.set_page_config(page_title="Audio Transcription & Entity Extraction", layout="centered")
+st.set_page_config(page_title="Meeting Transcription & Entity Extraction", layout="centered")
 
 # Başlık ve Giriş Bilgileri
-st.title("Audio Transcription & Named Entity Extraction")
-st.write("**Developer:** Doğukan Duran | **Student ID:**150220333")
-st.markdown("Bu uygulama WAV formatındaki ses dosyalarını yazıya döker ve metindeki kişileri (Persons), organizasyonları (Organizations) ve konumları (Locations) algılar.")
+st.title("Meeting Transcription and Entity Extraction")
+st.write("150220333|Doğukan Duran")
+st.markdown("Upload a business meeting audio file to:\n 1.Transcribe the meeting audio into text.\n 2. Extract key entities such as Persons, Organisations, Dates, and Locations.")
 
 # Kullanıcıdan WAV ses dosyasını yüklemesini isteyen kısım
-uploaded_file = st.file_uploader("Lütfen bir WAV dosyası yükleyin:", type=["wav"])
+uploaded_file = st.file_uploader("Upload an audio file(WAV format)", type=["wav"])
 
 # Hugging Face'den Whisper Tiny Modelini yükleme
 @st.cache_resource
