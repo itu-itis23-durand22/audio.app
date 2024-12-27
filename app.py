@@ -1,6 +1,10 @@
 import streamlit as st
 from transformers import pipeline
-import tempfile  # Geçici dosya yöntemi için
+import os
+import tempfile
+from transformers import WhisperProcessor, WhisperForConditionalGeneration
+import torch
+
 # Streamlit sayfa başlığı
 st.set_page_config(page_title="Audio Transcription & Entity Extraction", layout="centered")
 
@@ -13,150 +17,80 @@ st.markdown("Bu uygulama WAV formatındaki ses dosyalarını yazıya döker ve m
 uploaded_file = st.file_uploader("Lütfen bir WAV dosyası yükleyin:", type=["wav"])
 
 # Hugging Face'den Whisper Tiny Modelini yükleme
-# ------------------------------
-# Load Whisper Model
-# ------------------------------
 @st.cache_resource
 def load_whisper_model():
-    """
-    Load the Whisper model for audio transcription.
-    """
-    # chunk_length_s=30 diyerek 30 sn'den uzun kayıtları parçalıyoruz.
-    asr_pipeline = pipeline(
-        "automatic-speech-recognition",
-        model="openai/whisper-tiny",
-        chunk_length_s=30  # Uzun kayıtlar otomatik parçalanır.
-    )
-    return asr_pipeline
+    processor = WhisperProcessor.from_pretrained("openai/whisper-tiny")
+    model = WhisperForConditionalGeneration.from_pretrained("openai/whisper-tiny")
+    return processor, model
 
-# ------------------------------
-# Load NER Model
-# ------------------------------
+# Hugging Face'den NER (Named Entity Recognition) Modelini yükleme
 @st.cache_resource
 def load_ner_model():
-    """
-    Load the Named Entity Recognition (NER) model pipeline.
-    """
-    ner_pipeline = pipeline("ner", model="dslim/bert-base-NER", aggregation_strategy="simple")
-    return ner_pipeline
+    return pipeline("ner", model="dslim/bert-base-NER", grouped_entities=True)
 
-# ------------------------------
-# Transcription Logic
-# ------------------------------
-def transcribe_audio(uploaded_file, asr_pipeline):
-    """
-    Transcribe audio into text using the Whisper model.
-    Args:
-        uploaded_file: Audio file uploaded by the user.
-        asr_pipeline: The loaded Whisper pipeline.
-    Returns:
-        str: Transcribed text from the audio file.
-    """
-    # Geçici bir dosya oluşturup veriyi oraya yazıyoruz:
-    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
-        tmp.write(uploaded_file.read())
-        tmp.flush()  # Dosyayı diske yazmak için
+# Geçici bir WAV dosyası oluşturma ve işleme
+def process_audio_file(file):
+    # Geçici dosya oluştur
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_file:
+        temp_file.write(file.read())
+        temp_file_path = temp_file.name
+    return temp_file_path
 
-        # Model bu geçici .wav dosyasını okuyarak transkripsiyon yapacak
-        result = asr_pipeline(tmp.name)
+# Ses dosyasını transkribe etme
+def transcribe_audio(file_path, processor, model):
+    with open(file_path, "rb") as f:
+        audio = f.read()
+    
+    inputs = processor(audio, sampling_rate=16000, return_tensors="pt")
+    with torch.no_grad():
+        generated_ids = model.generate(inputs["input_features"])
+        transcription = processor.batch_decode(generated_ids, skip_special_tokens=True)[0]
+    return transcription
 
-    # Eğer Whisper dosyayı parçalara ayırdıysa (liste döner), hepsini birleştiriyoruz
-    if isinstance(result, list):
-        transcription_text = " ".join(segment["text"] for segment in result)
-    else:
-        # Kısa dosyalarda tek parça (dict) dönebilir
-        transcription_text = result["text"]
-
-    return transcription_text
-
-# ------------------------------
-# Entity Extraction
-# ------------------------------
-def extract_entities(text, ner_pipeline):
-    """
-    Extract entities from transcribed text using the NER model.
-    """
-    ner_results = ner_pipeline(text)
-
-    orgs = set()
-    locs = set()
-    pers = set()
-
+# NER sonuçlarını gruplama
+def group_entities(ner_results):
+    persons = set()
+    organizations = set()
+    locations = set()
     for entity in ner_results:
-        entity_group = entity["entity_group"]
-        entity_word  = entity["word"]
-        
-        if entity_group == "ORG":
-            orgs.add(entity_word)
-        elif entity_group == "LOC":
-            locs.add(entity_word)
-        elif entity_group == "PER":
-            pers.add(entity_word)
+        if entity["entity_group"] == "PER":
+            persons.add(entity["word"])
+        elif entity["entity_group"] == "ORG":
+            organizations.add(entity["word"])
+        elif entity["entity_group"] == "LOC":
+            locations.add(entity["word"])
+    return persons, organizations, locations
 
-    return {
-        "ORG": list(orgs),
-        "LOC": list(locs),
-        "PER": list(pers)
-    }
+# Eğer dosya yüklenmişse işlemler başlasın
+if uploaded_file:
+    st.audio(uploaded_file, format="audio/wav")
+    st.write("### Ses Dosyası İşleniyor...")
 
-# ------------------------------
-# Main Streamlit Application
-# ------------------------------
-def main():
-    st.title("Meeting Transcription and Entity Extraction")
-
-    # Lütfen bu kısımları kendi bilgilerinizle değiştirin
-    STUDENT_NAME = "Mustafa İhsan Yüce"
-    STUDENT_ID   = "150210333"
-    st.write(f"*{STUDENT_ID} - {STUDENT_NAME}*")
-
-    # Model yüklemelerini gerçekleştirelim
-    asr_pipeline = load_whisper_model()
+    # Model Yükleme
+    whisper_processor, whisper_model = load_whisper_model()
     ner_pipeline = load_ner_model()
 
-    # Uygulama içinde WAV formatlı dosya yüklenmesini sağlayalım
-    uploaded_file = st.file_uploader("Lütfen WAV formatında bir ses dosyası yükleyiniz:", type=["wav"])
+    # 1. Adım: Ses dosyasını geçici olarak işleme
+    audio_path = process_audio_file(uploaded_file)
 
-    if uploaded_file is not None:
-        # Kullanıcının yüklediği ses dosyasını çalabilmek için
-        st.audio(uploaded_file, format="audio/wav")
+    # 2. Adım: Ses dosyasını transkribe etme
+    st.write("#### Adım 1: Ses Transkripsiyonu")
+    transcription = transcribe_audio(audio_path, whisper_processor, whisper_model)
+    st.text_area("Transkript", transcription, height=150)
 
-        # 1) Transcribe
-        with st.spinner("Ses dosyası metne dönüştürülüyor (Whisper Tiny)..."):
-            transcription_text = transcribe_audio(uploaded_file, asr_pipeline)
+    # 3. Adım: Transkribe edilmiş metinden varlık çıkarımı (NER)
+    st.write("#### Adım 2: İsim Varlıklarının Çıkarılması")
+    ner_results = ner_pipeline(transcription)
+    persons, organizations, locations = group_entities(ner_results)
 
-        st.subheader("Transcribed Text")
-        st.write(transcription_text)
+    # Varlıkları Gruplandır ve Göster
+    st.write("#### Çıkarılan İsim Varlıkları")
+    st.subheader("Persons (PER)")
+    st.write(", ".join(persons) if persons else "Kişi bulunamadı.")
+    st.subheader("Organizations (ORG)")
+    st.write(", ".join(organizations) if organizations else "Organizasyon bulunamadı.")
+    st.subheader("Locations (LOC)")
+    st.write(", ".join(locations) if locations else "Konum bulunamadı.")
 
-        # 2) NER Extraction
-        with st.spinner("Metindeki varlıklar tespit ediliyor (NER modeli)..."):
-            entities = extract_entities(transcription_text, ner_pipeline)
-
-        st.subheader("Extracted Entities")
-        # Organizasyonlar (ORG)
-        st.write("*Organizations (ORG)*")
-        if len(entities["ORG"]) > 0:
-            for org in entities["ORG"]:
-                st.write("- ", org)
-        else:
-            st.write("Hiçbir organizasyon tespit edilmedi.")
-
-        # Lokasyonlar (LOC)
-        st.write("*Locations (LOC)*")
-        if len(entities["LOC"]) > 0:
-            for loc in entities["LOC"]:
-                st.write("- ", loc)
-        else:
-            st.write("Hiçbir lokasyon tespit edilmedi.")
-
-        # Kişiler (PER)
-        st.write("*Persons (PER)*")
-        if len(entities["PER"]) > 0:
-            for per in entities["PER"]:
-                st.write("- ", per)
-        else:
-            st.write("Hiçbir kişi tespit edilmedi.")
-
-if __name__ == "_main_":
-    main()
-
+    # Geçici dosyayı sil
+    os.remove(audio_path)
