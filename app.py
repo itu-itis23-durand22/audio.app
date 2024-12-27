@@ -80,7 +80,7 @@ def main():
     st.title("Meeting Transcription and Entity Extraction")
 
     # Replace with your name and student ID
-    STUDENT_NAME = "Do{ukan Duran"
+    STUDENT_NAME = "Doğukan Duran"
     STUDENT_ID = "150220333"
     st.write(f"**{STUDENT_ID} - {STUDENT_NAME}**")
 
