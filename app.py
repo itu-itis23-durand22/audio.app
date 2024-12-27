@@ -7,7 +7,7 @@ import io
 # ------------------------------
 def load_whisper_model():
     """
-    Load the Whisper model for audio transcription.
+    Load the Whisper model for audio transcription
     """
     whisper_model = pipeline("automatic-speech-recognition", model="openai/whisper-tiny")
     return whisper_model
